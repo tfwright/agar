@@ -15,7 +15,6 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/agar](https://hexdocs.pm/agar).
+## Development
 
+* Prepare test database: `MIX_ENV=test mix do ecto.create, mix ecto.migrate`
