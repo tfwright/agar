@@ -103,31 +103,35 @@ defmodule Agar do
   defp merge_column_for_type(:fields, field, base_query, _schema),
     do: select_merge(base_query, [s], %{^to_string(field) => field(s, ^field)})
 
-  defp merge_column_for_type(type, {name, fields}, base_query, schema)
-       when type in [:scopes, :assocs] do
-    Enum.reduce(fields, base_query, fn
-      {field, aggs}, query_acc ->
-        Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->
-          add_join_for_type(type, agg_query_acc, name, field, agg, schema)
-          |> select_merge([..., j], %{^"#{name}_#{field}_#{agg}" => j.agg})
-        end)
+  defp merge_column_for_type(type, {relation_name, fields}, base_query, schema),
+    do:
+      Enum.reduce(fields, base_query, &merge_relation_field(schema, relation_name, type, &1, &2))
 
-      _, _ ->
-        raise Agar.InvalidColumnConfig, ~s(missing aggregation)
+  defp merge_relation_field(schema, relation_name, type, {field, aggs}, query_acc) do
+    Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->
+      add_join_for_type(type, agg_query_acc, schema, relation_name, field, agg)
+      |> select_merge([..., j], %{^"#{relation_name}_#{field}_#{agg}" => j.agg})
     end)
   end
 
-  defp add_join_for_type(:assocs, q, name, field, agg, schema) do
+  defp merge_relation_field(schema, relation_name, type, field, query_acc) do
+    add_join_for_type(type, query_acc, schema, relation_name, field)
+    |> select_merge([..., j], %{^"#{relation_name}_#{field}" => j.f})
+  end
+
+  defp add_join_for_type(type, q, s, r, f, a \\ nil)
+
+  defp add_join_for_type(:assocs, q, schema, relation_name, field, agg) do
     assoc_query =
-      assoc_query(name, schema)
+      assoc_query(relation_name, schema)
       |> add_subquery_select(field, agg)
 
     join(q, :left_lateral, [], subquery(assoc_query))
   end
 
-  defp add_join_for_type(:scopes, q, name, field, agg, schema) do
+  defp add_join_for_type(:scopes, q, schema, relation_name, field, agg) do
     scope_query =
-      from(apply(schema, name, []), as: :queryable)
+      from(apply(schema, relation_name, []), as: :queryable)
       |> add_subquery_select(field, agg)
 
     join(q, :left_lateral, [], subquery(scope_query))
@@ -163,6 +167,9 @@ defmodule Agar do
     )
     |> elem(0)
   end
+
+  defp add_subquery_select(q, field, nil),
+    do: select(q, [queryable: table], %{f: field(table, ^field)})
 
   defp add_subquery_select(q, field, :count) do
     select(q, [queryable: table], %{agg: coalesce(count(field(table, ^field)), 0)})

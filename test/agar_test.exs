@@ -3,7 +3,7 @@ defmodule AgarTest do
 
   import Ecto.Query
 
-  alias AgarTest.{Repo, ParentSchema, ChildSchema}
+  alias AgarTest.{Repo, ParentSchema, ChildSchema, SiblingSchema}
 
   doctest Agar
 
@@ -73,6 +73,25 @@ defmodule AgarTest do
     test "includes sum in results" do
       assert [%{"children_number_field_sum" => 10}] =
                ParentSchema.aggregate(assocs: [children: [number_field: [:sum]]])
+               |> Repo.all()
+    end
+  end
+
+  describe "aggregate with 1-1 association field" do
+    setup do
+      parent =
+        %ParentSchema{}
+        |> Repo.insert!()
+
+      %SiblingSchema{string_field: "what", parent_schema: parent}
+      |> Repo.insert!()
+
+      :ok
+    end
+
+    test "includes field in results" do
+      assert [%{"sibling_string_field" => "what"}] =
+               ParentSchema.aggregate(assocs: [sibling: [:string_field]])
                |> Repo.all()
     end
   end
