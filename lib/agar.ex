@@ -109,7 +109,7 @@ defmodule Agar do
       {field, aggs}, query_acc ->
         Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->
           add_join_for_type(type, agg_query_acc, name, field, agg, schema)
-          |> select_merge([..., j], %{^"#{name}_#{field}_#{agg}" => j.agg})
+          |> select_merge([..., j], %{^"#{name}_#{field}_#{agg}" => coalesce(j.agg, 0)})
         end)
 
       _, _ ->

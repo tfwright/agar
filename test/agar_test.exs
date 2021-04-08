@@ -47,4 +47,19 @@ defmodule AgarTest do
                |> Repo.all()
     end
   end
+
+  describe "aggregate with association sum when there are no associated records" do
+    setup do
+      %ParentSchema{}
+      |> Repo.insert!()
+
+      :ok
+    end
+
+    test "includes sum in results" do
+      assert [%{"children_number_field_sum" => 0}] =
+               ParentSchema.aggregate(assocs: [children: [number_field: [:sum]]])
+               |> Repo.all()
+    end
+  end
 end
