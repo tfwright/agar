@@ -1,6 +1,8 @@
 defmodule AgarTest do
   use ExUnit.Case
 
+  import Ecto.Query
+
   alias AgarTest.{Repo, ParentSchema, ChildSchema}
 
   doctest Agar
@@ -21,6 +23,33 @@ defmodule AgarTest do
 
     test "includes given field in results" do
       assert [%{"name" => "hi"}] = ParentSchema.aggregate(fields: [:name]) |> Repo.all()
+    end
+  end
+
+  describe "aggregate on query" do
+    setup do
+      %ParentSchema{
+        name: "hi"
+      }
+      |> Repo.insert!()
+
+      :ok
+    end
+
+    test "includes given field in results when record is included in query" do
+      assert [%{"name" => "hi"}] =
+               ParentSchema
+               |> where(name: "hi")
+               |> ParentSchema.aggregate(fields: [:name])
+               |> Repo.all()
+    end
+
+    test "returns empty list when no record is included in query" do
+      assert [] =
+               ParentSchema
+               |> where(name: "not hi")
+               |> ParentSchema.aggregate(fields: [:name])
+               |> Repo.all()
     end
   end
 

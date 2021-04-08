@@ -54,13 +54,13 @@ defmodule Agar do
 
       MySchema.aggregate(["name", "sum_other_schema_field"])
       """
-      def aggregate(columns) do
-        Agar.__aggregate__(columns, __MODULE__)
+      def aggregate(queryable \\ __MODULE__, columns) do
+        Agar.__aggregate__(columns, __MODULE__, queryable)
       end
     end
   end
 
-  def __aggregate__(columns, schema) do
+  def __aggregate__(columns, schema, queryable) do
     columns
     |> Keyword.keyword?()
     |> case do
@@ -87,7 +87,7 @@ defmodule Agar do
         end)
     end
     |> Enum.reduce(
-      source_query(schema),
+      base_query(schema, queryable),
       fn {type, configs}, base_query ->
         merge_column_types(type, configs, base_query, schema)
       end
@@ -133,12 +133,14 @@ defmodule Agar do
     join(q, :left_lateral, [], subquery(scope_query))
   end
 
-  defp source_query(schema) do
+  defp base_query(schema, queryable) do
     binding = String.to_atom(schema.__schema__(:source))
+
+    escaped_query = Macro.escape(queryable)
 
     Code.eval_quoted(
       quote do
-        from(s in unquote(schema), as: unquote(binding))
+        from(s in unquote(escaped_query), as: unquote(binding))
       end
     )
     |> elem(0)
