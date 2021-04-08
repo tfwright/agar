@@ -91,4 +91,28 @@ defmodule AgarTest do
                |> Repo.all()
     end
   end
+
+  describe "aggregate with custom function" do
+    setup do
+      parent =
+        %ParentSchema{
+          name: "hi"
+        }
+        |> Repo.insert!()
+
+      [
+        %ChildSchema{string_field: "one", parent_schema: parent},
+        %ChildSchema{string_field: "two", parent_schema: parent}
+      ]
+      |> Enum.each(&Repo.insert!(&1))
+
+      :ok
+    end
+
+    test "includes aggregate in results" do
+      assert [%{"children_string_field_array" => ["one", "two"]}] =
+               ParentSchema.aggregate(assocs: [children: [string_field: [:array]]])
+               |> Repo.all()
+    end
+  end
 end

@@ -109,7 +109,7 @@ defmodule Agar do
       {field, aggs}, query_acc ->
         Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->
           add_join_for_type(type, agg_query_acc, name, field, agg, schema)
-          |> select_merge([..., j], %{^"#{name}_#{field}_#{agg}" => coalesce(j.agg, 0)})
+          |> select_merge([..., j], %{^"#{name}_#{field}_#{agg}" => j.agg})
         end)
 
       _, _ ->
@@ -165,15 +165,32 @@ defmodule Agar do
   end
 
   defp add_subquery_select(q, field, :count) do
-    select(q, [queryable: table], %{agg: count(field(table, ^field))})
+    select(q, [queryable: table], %{agg: coalesce(count(field(table, ^field)), 0)})
   end
 
   defp add_subquery_select(q, field, :sum) do
-    select(q, [queryable: table], %{agg: sum(field(table, ^field))})
+    select(q, [queryable: table], %{agg: coalesce(sum(field(table, ^field)), 0)})
   end
 
   defp add_subquery_select(q, field, :avg) do
-    select(q, [queryable: table], %{agg: avg(field(table, ^field))})
+    select(q, [queryable: table], %{agg: coalesce(avg(field(table, ^field)), 0)})
+  end
+
+  defp add_subquery_select(q, field, custom_function) do
+    aggregate_fragment =
+      Application.get_env(:agar, :custom_aggregations)
+      |> Keyword.fetch!(custom_function)
+
+    escaped_q = Macro.escape(q)
+
+    Code.eval_quoted(
+      quote do
+        select(unquote(escaped_q), [queryable: table], %{
+          agg: fragment(unquote(aggregate_fragment), field(table, unquote(field)))
+        })
+      end
+    )
+    |> elem(0)
   end
 
   defp recursively_merge_column_configs(k, v1, v2) when is_list(v1) and is_list(v2) do

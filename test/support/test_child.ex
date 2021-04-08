@@ -10,6 +10,7 @@ defmodule AgarTest.ChildSchema do
 
   schema "test_children" do
     field(:number_field, :integer)
+    field(:string_field, :string)
 
     belongs_to(:parent_schema, ParentSchema)
   end

@@ -3,7 +3,10 @@ use Mix.Config
 config :agar,
   ecto_repos: [AgarTest.Repo],
   repo: AgarTest.Repo,
-  audience_module: SpurTest.AppUser
+  audience_module: SpurTest.AppUser,
+  custom_aggregations: [
+    array: "ARRAY_AGG(?)"
+  ]
 
 config :agar, AgarTest.Repo,
   adapter: Ecto.Adapters.Postgres,
