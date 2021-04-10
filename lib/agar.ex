@@ -103,9 +103,14 @@ defmodule Agar do
   defp merge_column_for_type(:fields, field, base_query, _schema),
     do: select_merge(base_query, [s], %{^to_string(field) => field(s, ^field)})
 
-  defp merge_column_for_type(type, {relation_name, fields}, base_query, schema),
-    do:
-      Enum.reduce(fields, base_query, &merge_relation_field(schema, relation_name, type, &1, &2))
+  defp merge_column_for_type(type, {relation_name, fields}, base_query, schema) do
+    fields
+    |> List.wrap()
+    |> Enum.reduce(
+      base_query,
+      &merge_relation_field(schema, relation_name, type, &1, &2)
+    )
+  end
 
   defp merge_relation_field(schema, relation_name, type, {field, aggs}, query_acc) do
     Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->

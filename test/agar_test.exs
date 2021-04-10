@@ -134,4 +134,12 @@ defmodule AgarTest do
                |> Repo.all()
     end
   end
+
+  describe "aggregate with non array param" do
+    test "includes aggregate in results" do
+      assert [] =
+               ParentSchema.aggregate(assocs: [children: :string_field])
+               |> Repo.all()
+    end
+  end
 end
