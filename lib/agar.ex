@@ -203,7 +203,7 @@ defmodule Agar do
     |> elem(0)
   end
 
-  defp recursively_merge_column_configs(k, v1, v2) when is_list(v1) and is_list(v2) do
+  defp recursively_merge_column_configs(_k, v1, v2) when is_list(v1) and is_list(v2) do
     case Enum.all?(v1, &is_atom/1) do
       true -> v1 ++ v2
       false -> Keyword.merge(v1, v2, &recursively_merge_column_configs/3)
