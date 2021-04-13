@@ -113,7 +113,9 @@ defmodule Agar do
   end
 
   defp merge_relation_field(schema, relation_name, type, {field, aggs}, query_acc) do
-    Enum.reduce(aggs, query_acc, fn agg, agg_query_acc ->
+    aggs
+    |> List.wrap()
+    |> Enum.reduce(query_acc, fn agg, agg_query_acc ->
       add_join_for_type(type, agg_query_acc, schema, relation_name, field, agg)
       |> select_merge([..., j], %{^"#{relation_name}_#{field}_#{agg}" => j.agg})
     end)

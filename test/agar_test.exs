@@ -142,4 +142,12 @@ defmodule AgarTest do
                |> Repo.all()
     end
   end
+
+  describe "aggregate field with non-array function" do
+    test "does not raise" do
+      assert [] =
+               ParentSchema.aggregate(assocs: [children: [string_field: :array]])
+               |> Repo.all()
+    end
+  end
 end
