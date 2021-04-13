@@ -50,78 +50,111 @@ defmodule Agar do
   end
 
   def __aggregate__(columns, schema, queryable) do
-    columns
-    |> Keyword.keyword?()
-    |> case do
-      true ->
-        columns
+    configs =
+      columns
+      |> Keyword.keyword?()
+      |> case do
+        true ->
+          columns
 
-      false ->
-        Enum.reduce(columns, [], fn key, acc ->
-          config =
-            if String.starts_with?(key, ["sum", "count", "avg"]) do
-              [agg, key] =
-                String.split(key, "_", parts: 2)
-                |> Enum.map(&String.to_existing_atom/1)
+        false ->
+          Enum.reduce(columns, [], fn key, acc ->
+            config =
+              if String.starts_with?(key, ["sum", "count", "avg"]) do
+                [agg, key] =
+                  String.split(key, "_", parts: 2)
+                  |> Enum.map(&String.to_existing_atom/1)
 
-              case schema.__agar_columns__(key) do
-                [assoc: name, field: field] -> [assocs: [{name, [{field, [agg]}]}]]
+                case schema.__agar_columns__(key) do
+                  [assoc: name, field: field] -> [assocs: [{name, [{field, [agg]}]}]]
+                end
+              else
+                [fields: [String.to_existing_atom(key)]]
               end
-            else
-              [fields: [String.to_existing_atom(key)]]
-            end
 
-          Keyword.merge(acc, config, &recursively_merge_column_configs/3)
-        end)
-    end
-    |> Enum.reduce(
+            Keyword.merge(acc, config, &recursively_merge_column_configs/3)
+          end)
+      end
+
+    grouping_fields = Keyword.get(configs, :fields, [:id])
+
+    Enum.reduce(
+      configs,
       base_query(schema, queryable),
-      fn {type, configs}, base_query ->
-        Enum.reduce(configs, base_query, fn config, query_acc ->
-          merge_column_for_type(type, config, query_acc, schema)
+      fn {type, fields}, base_query ->
+        Enum.reduce(fields, base_query, fn field, query_acc ->
+          merge_column_for_type(type, field, query_acc, schema, grouping_fields)
         end)
       end
     )
   end
 
-  defp merge_column_for_type(:fields, field, base_query, _schema),
-    do: select_merge(base_query, [s], %{^to_string(field) => field(s, ^field)})
+  defp merge_column_for_type(:fields, {assoc_name, fields}, base_query, _schema, _grouping_fields) do
+    escaped_query = Macro.escape(base_query)
 
-  defp merge_column_for_type(type, {relation_name, fields}, base_query, schema) do
+    query_with_join =
+      Code.eval_quoted(
+        quote do
+          join(unquote(escaped_query), :left, [s], assoc(s, unquote(assoc_name)),
+            as: unquote(assoc_name)
+          )
+        end
+      )
+      |> elem(0)
+
+    fields
+    |> List.wrap()
+    |> Enum.reduce(query_with_join, fn field, query_acc ->
+      query_acc
+      |> select_merge([..., j], %{^"#{assoc_name}_#{field}" => field(j, ^field)})
+      |> group_by([..., j], field(j, ^field))
+    end)
+  end
+
+  defp merge_column_for_type(:fields, field, base_query, _schema, _grouping_fields) do
+    base_query
+    |> select_merge([s], %{^to_string(field) => field(s, ^field)})
+    |> group_by([s], field(s, ^field))
+  end
+
+  defp merge_column_for_type(type, {relation_name, fields}, base_query, schema, grouping_fields) do
     fields
     |> List.wrap()
     |> Enum.reduce(
       base_query,
-      &merge_relation_field(schema, relation_name, type, &1, &2)
+      &merge_relation_field(schema, relation_name, type, &1, &2, grouping_fields)
     )
   end
 
-  defp merge_relation_field(schema, relation_name, type, {field, aggs}, query_acc) do
+  defp merge_relation_field(
+         schema,
+         relation_name,
+         type,
+         {field, aggs},
+         query_acc,
+         grouping_fields
+       ) do
     aggs
     |> List.wrap()
     |> Enum.reduce(query_acc, fn agg, agg_query_acc ->
-      add_join_for_type(type, agg_query_acc, schema, relation_name, field, agg)
+      add_join_for_type(type, agg_query_acc, schema, relation_name, field, agg, grouping_fields)
       |> select_merge([..., j], %{^"#{relation_name}_#{field}_#{agg}" => j.agg})
+      |> group_by([..., j], j.agg)
     end)
   end
 
-  defp merge_relation_field(schema, relation_name, type, field, query_acc) do
-    add_join_for_type(type, query_acc, schema, relation_name, field)
-    |> select_merge([..., j], %{^"#{relation_name}_#{field}" => j.f})
-  end
-
-  defp add_join_for_type(type, q, s, r, f, a \\ nil)
-
-  defp add_join_for_type(:assocs, q, schema, relation_name, field, agg) do
+  defp add_join_for_type(:assocs, q, schema, relation_name, field, agg, grouping_fields) do
     assoc_query =
-      assoc_query(relation_name, schema)
+      from(schema)
+      |> join(:left, [s], assoc(s, ^relation_name), as: :queryable)
       |> add_subquery_select(field, agg)
+      |> add_subquery_conditions(grouping_fields, schema)
 
     join(q, :left_lateral, [], subquery(assoc_query))
   end
 
   defp base_query(schema, queryable) do
-    binding = String.to_atom(schema.__schema__(:source))
+    binding = binding_name(schema)
 
     escaped_query = Macro.escape(queryable)
 
@@ -132,23 +165,6 @@ defmodule Agar do
     )
     |> elem(0)
     |> select([s], %{})
-  end
-
-  def assoc_query(name, schema) do
-    binding = String.to_atom(schema.__schema__(:source))
-
-    base_query =
-      schema
-      |> join(:inner, [s], assoc(s, ^name), as: :queryable)
-
-    escaped_query = Macro.escape(base_query)
-
-    Code.eval_quoted(
-      quote do
-        where(unquote(escaped_query), [s], parent_as(unquote(binding)).id == s.id)
-      end
-    )
-    |> elem(0)
   end
 
   defp add_subquery_select(q, field, nil),
@@ -183,12 +199,54 @@ defmodule Agar do
     |> elem(0)
   end
 
+  defp add_subquery_conditions(q, fields, schema) do
+    binding = binding_name(schema)
+
+    Enum.reduce(fields, q, fn
+      {relation_name, fields}, subquery_acc ->
+        subquery_with_join = join(subquery_acc, :left, [s], assoc(s, ^relation_name))
+
+        fields
+        |> List.wrap()
+        |> Enum.reduce(subquery_with_join, fn field, subquery_with_join_acc ->
+          escaped_query = Macro.escape(subquery_with_join_acc)
+
+          Code.eval_quoted(
+            quote do
+              where(
+                unquote(escaped_query),
+                [..., j],
+                parent_as(unquote(relation_name)).unquote(field) == j.unquote(field)
+              )
+            end
+          )
+          |> elem(0)
+        end)
+
+      field, subquery_acc ->
+        escaped_query = Macro.escape(subquery_acc)
+
+        Code.eval_quoted(
+          quote do
+            where(
+              unquote(escaped_query),
+              [s],
+              parent_as(unquote(binding)).unquote(field) == field(s, ^unquote(field))
+            )
+          end
+        )
+        |> elem(0)
+    end)
+  end
+
   defp recursively_merge_column_configs(_k, v1, v2) when is_list(v1) and is_list(v2) do
     case Enum.all?(v1, &is_atom/1) do
       true -> v1 ++ v2
       false -> Keyword.merge(v1, v2, &recursively_merge_column_configs/3)
     end
   end
+
+  defp binding_name(schema), do: String.to_atom(schema.__schema__(:source))
 end
 
 defmodule Agar.InvalidColumnKey do
