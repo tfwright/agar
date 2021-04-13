@@ -96,8 +96,23 @@ defmodule Agar do
     )
   end
 
-  defp merge_column_for_type(:fields, field, base_query, _schema),
-    do: select_merge(base_query, [s], %{^to_string(field) => field(s, ^field)})
+  defp merge_column_for_type(:fields, {assoc_name, fields}, base_query, _schema) do
+    query_with_join = join(base_query, :left, [s], assoc(s, ^assoc_name))
+
+    fields
+    |> List.wrap()
+    |> Enum.reduce(query_with_join, fn field, query_acc ->
+      query_acc
+      |> select_merge([..., j], %{^"#{assoc_name}_#{field}" => field(j, ^field)})
+      |> group_by([..., j], field(j, ^field))
+    end)
+  end
+
+  defp merge_column_for_type(:fields, field, base_query, _schema) do
+    base_query
+    |> select_merge([s], %{^to_string(field) => field(s, ^field)})
+    |> group_by([s], field(s, ^field))
+  end
 
   defp merge_column_for_type(type, {relation_name, fields}, base_query, schema) do
     fields

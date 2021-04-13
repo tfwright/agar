@@ -135,19 +135,70 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with non array param" do
-    test "includes aggregate in results" do
-      assert [] =
-               ParentSchema.aggregate(assocs: [children: :string_field])
-               |> Repo.all()
-    end
-  end
-
   describe "aggregate field with non-array function" do
     test "does not raise" do
       assert [] =
                ParentSchema.aggregate(assocs: [children: [string_field: :array]])
                |> Repo.all()
+    end
+  end
+
+  describe "aggregate with child field" do
+    setup do
+      parent =
+        %ParentSchema{
+          name: "hi"
+        }
+        |> Repo.insert!()
+
+      [
+        %ChildSchema{string_field: "one", parent_schema: parent},
+        %ChildSchema{string_field: "two", parent_schema: parent}
+      ]
+      |> Enum.each(&Repo.insert!(&1))
+
+      :ok
+    end
+
+    test "groups by child field" do
+      assert [
+               %{"name" => "hi", "children_string_field" => "one"},
+               %{"name" => "hi", "children_string_field" => "two"}
+             ] =
+               ParentSchema.aggregate(fields: [:name, children: :string_field])
+               |> Repo.all()
+               |> Enum.sort_by(&Map.fetch!(&1, "children_string_field"))
+    end
+  end
+
+  describe "aggregate with child field and child aggregate" do
+    setup do
+      parent =
+        %ParentSchema{
+          name: "hi"
+        }
+        |> Repo.insert!()
+
+      [
+        %ChildSchema{string_field: "one", number_field: 1, parent_schema: parent},
+        %ChildSchema{string_field: "two", number_field: 2, parent_schema: parent}
+      ]
+      |> Enum.each(&Repo.insert!(&1))
+
+      :ok
+    end
+
+    test "aggregate respects grouping" do
+      assert [
+               %{"string_field" => "one", "number_field_sum" => 1},
+               %{"string_field" => "two", "number_field_sum" => 2}
+             ] =
+               ParentSchema.aggregate(
+                 fields: [children: :string_field],
+                 assocs: [children: [number_field: :sum]]
+               )
+               |> Repo.all()
+               |> Enum.sort_by(&Map.fetch!(&1, "children_string_field"))
     end
   end
 end
