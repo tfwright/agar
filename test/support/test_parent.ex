@@ -7,6 +7,8 @@ defmodule AgarTest.ParentSchema do
       assocs: [:children]
     ]
 
+  import Ecto.Query
+
   alias AgarTest.{ChildSchema, SiblingSchema}
 
   schema "test_parents" do
@@ -15,5 +17,9 @@ defmodule AgarTest.ParentSchema do
     has_many(:children, ChildSchema)
 
     has_one(:sibling, SiblingSchema)
+  end
+
+  def children_with_string_field_one do
+    ChildSchema |> where(string_field: "one")
   end
 end

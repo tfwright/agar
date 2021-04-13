@@ -21,16 +21,6 @@ defmodule Agar do
         )
       end
 
-      for {:scopes, scopes} <- unquote(whitelist),
-          {scope, fields} <- scopes,
-          field <- fields do
-        Module.put_attribute(
-          __MODULE__,
-          :agar_columns_by_key,
-          {:"#{scope}_#{field}", [scope: scope, field: field]}
-        )
-      end
-
       def __agar_columns__(), do: @agar_columns_by_key
 
       def __agar_columns__(key) when is_binary(key),
@@ -47,7 +37,6 @@ defmodule Agar do
       MySchema.aggregate(
         fields: [:name],
         assocs: [other_schema: [field: [:sum]]],
-        scopes: [my_schema_func: [field: [:count]]]
       )
 
       Also accepts a 1D list of key-aggregations:
@@ -76,7 +65,6 @@ defmodule Agar do
                 |> Enum.map(&String.to_existing_atom/1)
 
               case schema.__agar_columns__(key) do
-                [scope: name, field: field] -> [scopes: [{name, [{field, [agg]}]}]]
                 [assoc: name, field: field] -> [assocs: [{name, [{field, [agg]}]}]]
               end
             else
@@ -130,14 +118,6 @@ defmodule Agar do
       |> add_subquery_select(field, agg)
 
     join(q, :left_lateral, [], subquery(assoc_query))
-  end
-
-  defp add_join_for_type(:scopes, q, schema, relation_name, field, agg) do
-    scope_query =
-      from(apply(schema, relation_name, []), as: :queryable)
-      |> add_subquery_select(field, agg)
-
-    join(q, :left_lateral, [], subquery(scope_query))
   end
 
   defp base_query(schema, queryable) do
