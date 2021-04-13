@@ -11,7 +11,7 @@ defmodule AgarTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
   end
 
-  describe "aggregate with fields option" do
+  describe "aggregate/1 with fields option" do
     setup do
       %ParentSchema{
         name: "hi"
@@ -26,7 +26,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate on query" do
+  describe "aggregate/1 on query" do
     setup do
       %ParentSchema{
         name: "hi"
@@ -53,7 +53,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with association sum" do
+  describe "aggregate/1 with association sum" do
     setup do
       parent =
         %ParentSchema{
@@ -77,7 +77,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with 1-1 association field" do
+  describe "aggregate/1 with 1-1 association field" do
     setup do
       parent =
         %ParentSchema{}
@@ -96,7 +96,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with association sum when there are no associated records" do
+  describe "aggregate/1 with association field sum when there are no associated records" do
     setup do
       %ParentSchema{}
       |> Repo.insert!()
@@ -111,7 +111,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with custom function" do
+  describe "aggregate/1 with association field with custom function" do
     setup do
       parent =
         %ParentSchema{
@@ -135,7 +135,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate with non array param" do
+  describe "aggregate/1 with association field with non array param" do
     test "includes aggregate in results" do
       assert [] =
                ParentSchema.aggregate(assocs: [children: :string_field])
@@ -143,7 +143,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate field with non-array function" do
+  describe "aggregate/1 with association field with non-array function" do
     test "does not raise" do
       assert [] =
                ParentSchema.aggregate(assocs: [children: [string_field: :array]])
