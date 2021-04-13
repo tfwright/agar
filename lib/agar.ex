@@ -89,15 +89,11 @@ defmodule Agar do
     |> Enum.reduce(
       base_query(schema, queryable),
       fn {type, configs}, base_query ->
-        merge_column_types(type, configs, base_query, schema)
+        Enum.reduce(configs, base_query, fn config, query_acc ->
+          merge_column_for_type(type, config, query_acc, schema)
+        end)
       end
     )
-  end
-
-  defp merge_column_types(type, configs, base_query, schema) do
-    Enum.reduce(configs, base_query, fn config, query_acc ->
-      merge_column_for_type(type, config, query_acc, schema)
-    end)
   end
 
   defp merge_column_for_type(:fields, field, base_query, _schema),
