@@ -1,6 +1,14 @@
 # Agar
 
-**TODO: Add description**
+Dynamically build aggregate queries in Ecto from simple configs that can easily be encoded as URL params.
+
+```
+MySchema.aggregate(
+  fields: [:name, :email, associated_schema: :id],
+  assocs: [other_assoc: [numeric_field: [:sum, :avg]]],
+)
+=> [%{"name" => "hi", "email" => "email@example.com", "other_assoc_numeric_field_avg" => 3, "other_assoc_numeric_field_sum" => 10}]
+```
 
 ## Installation
 
