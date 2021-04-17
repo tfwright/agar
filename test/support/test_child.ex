@@ -2,9 +2,7 @@ defmodule AgarTest.ChildSchema do
   use Ecto.Schema
 
   use Agar,
-    whitelist: [
-      fields: [:number_field]
-    ]
+    whitelist: [:number_field]
 
   alias AgarTest.ParentSchema
 

@@ -11,6 +11,14 @@ defmodule AgarTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
   end
 
+  describe "aggregate/1 containing non-whitelisted key" do
+    test "raises error" do
+      assert_raise Agar.InvalidColumnKey, fn ->
+        ParentSchema.aggregate(["what"])
+      end
+    end
+  end
+
   describe "aggregate/1 with single record" do
     setup do
       %ParentSchema{

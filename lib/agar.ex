@@ -1,37 +1,29 @@
 defmodule Agar do
   import Ecto.Query
 
+  alias Agar.Whitelist
+
+  @doc """
+  Define the aggregate function on schema.
+
+  `use Agar`
+
+  In order to support composing aggregations from query params, specify
+  allowed associations and fields using the `whitelist` option.
+
+  `use Agar, whitelist: [:list, :of, :fields]`
+  """
   defmacro __using__(opts) do
     whitelist = Keyword.get(opts, :whitelist, [])
 
     quote do
-      Module.register_attribute(__MODULE__, :agar_columns_by_key, accumulate: true)
+      Module.register_attribute(__MODULE__, :agar_fields, accumulate: true)
 
-      for {:fields, fields} <- unquote(whitelist), field <- fields do
-        Module.put_attribute(__MODULE__, :agar_columns_by_key, {field, [field: field]})
+      for field <- unquote(whitelist) do
+        Module.put_attribute(__MODULE__, :agar_fields, field)
       end
 
-      for {:assocs, assocs} <- unquote(whitelist),
-          {assoc, fields} <- assocs,
-          field <- fields do
-        Module.put_attribute(
-          __MODULE__,
-          :agar_columns_by_key,
-          {:"#{assoc}_#{field}", [assoc: assoc, field: field]}
-        )
-      end
-
-      def __agar_columns__(), do: @agar_columns_by_key
-
-      def __agar_columns__(key) when is_binary(key),
-        do: String.to_existing_atom(key) |> __agar_columns__()
-
-      def __agar_columns__(key) when is_atom(key) do
-        case Keyword.get(@agar_columns_by_key, key) do
-          nil -> raise Agar.InvalidColumnKey, ~s(no config found for '#{key}')
-          column -> column
-        end
-      end
+      def __agar_fields__, do: @agar_fields
 
       @doc """
       MySchema.aggregate(
@@ -51,29 +43,10 @@ defmodule Agar do
 
   def __aggregate__(columns, schema, queryable) do
     configs =
-      columns
-      |> Keyword.keyword?()
-      |> case do
-        true ->
-          columns
-
-        false ->
-          Enum.reduce(columns, [], fn key, acc ->
-            config =
-              if String.starts_with?(key, ["sum", "count", "avg"]) do
-                [agg, key] =
-                  String.split(key, "_", parts: 2)
-                  |> Enum.map(&String.to_existing_atom/1)
-
-                case schema.__agar_columns__(key) do
-                  [assoc: name, field: field] -> [assocs: [{name, [{field, [agg]}]}]]
-                end
-              else
-                [fields: [String.to_existing_atom(key)]]
-              end
-
-            Keyword.merge(acc, config, &recursively_merge_column_configs/3)
-          end)
+      if Keyword.keyword?(columns) do
+        columns
+      else
+        Whitelist.parse(schema, columns)
       end
 
     grouping_fields = Keyword.get(configs, :fields, [:id])
@@ -243,20 +216,5 @@ defmodule Agar do
     end)
   end
 
-  defp recursively_merge_column_configs(_k, v1, v2) when is_list(v1) and is_list(v2) do
-    case Enum.all?(v1, &is_atom/1) do
-      true -> v1 ++ v2
-      false -> Keyword.merge(v1, v2, &recursively_merge_column_configs/3)
-    end
-  end
-
   defp binding_name(schema), do: String.to_atom("__agar_" <> schema.__schema__(:source))
-end
-
-defmodule Agar.InvalidColumnKey do
-  defexception message: "No column found for key"
-end
-
-defmodule Agar.InvalidColumnConfig do
-  defexception message: "Invalid column config"
 end

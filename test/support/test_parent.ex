@@ -2,10 +2,7 @@ defmodule AgarTest.ParentSchema do
   use Ecto.Schema
 
   use Agar,
-    whitelist: [
-      fields: [:name],
-      assocs: [:children]
-    ]
+    whitelist: [:name]
 
   import Ecto.Query
 
