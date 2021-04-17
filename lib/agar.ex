@@ -146,7 +146,7 @@ defmodule Agar do
   defp add_join_for_type(:assocs, q, schema, relation_name, field, agg, grouping_fields) do
     assoc_query =
       from(schema)
-      |> join(:left, [s], assoc(s, ^relation_name), as: :queryable)
+      |> join(:left, [s], assoc(s, ^relation_name))
       |> add_subquery_select(field, agg)
       |> add_subquery_conditions(grouping_fields, schema)
 
@@ -168,18 +168,18 @@ defmodule Agar do
   end
 
   defp add_subquery_select(q, field, nil),
-    do: select(q, [queryable: table], %{f: field(table, ^field)})
+    do: select(q, [..., table], %{f: field(table, ^field)})
 
   defp add_subquery_select(q, field, :count) do
-    select(q, [queryable: table], %{agg: coalesce(count(field(table, ^field)), 0)})
+    select(q, [..., table], %{agg: coalesce(count(field(table, ^field)), 0)})
   end
 
   defp add_subquery_select(q, field, :sum) do
-    select(q, [queryable: table], %{agg: coalesce(sum(field(table, ^field)), 0)})
+    select(q, [..., table], %{agg: coalesce(sum(field(table, ^field)), 0)})
   end
 
   defp add_subquery_select(q, field, :avg) do
-    select(q, [queryable: table], %{agg: coalesce(avg(field(table, ^field)), 0)})
+    select(q, [..., table], %{agg: coalesce(avg(field(table, ^field)), 0)})
   end
 
   defp add_subquery_select(q, field, custom_function) do
@@ -191,7 +191,7 @@ defmodule Agar do
 
     Code.eval_quoted(
       quote do
-        select(unquote(escaped_q), [queryable: table], %{
+        select(unquote(escaped_q), [..., table], %{
           agg: fragment(unquote(aggregate_fragment), field(table, unquote(field)))
         })
       end
