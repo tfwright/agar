@@ -11,7 +11,7 @@ defmodule AgarTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
   end
 
-  describe "aggregate/1 with fields option" do
+  describe "aggregate/1 with single record" do
     setup do
       %ParentSchema{
         name: "hi"
@@ -21,22 +21,11 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes given field in results" do
+    test "supports field option" do
       assert [%{"name" => "hi"}] = ParentSchema.aggregate(fields: [:name]) |> Repo.all()
     end
-  end
 
-  describe "aggregate/1 on query" do
-    setup do
-      %ParentSchema{
-        name: "hi"
-      }
-      |> Repo.insert!()
-
-      :ok
-    end
-
-    test "includes given field in results when record is included in query" do
+    test "includes record when matching query" do
       assert [%{"name" => "hi"}] =
                ParentSchema
                |> where(name: "hi")
@@ -44,7 +33,7 @@ defmodule AgarTest do
                |> Repo.all()
     end
 
-    test "returns empty list when no record is included in query" do
+    test "returns empty list when not matching query" do
       assert [] =
                ParentSchema
                |> where(name: "not hi")
@@ -53,7 +42,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate/1 with association sum" do
+  describe "aggregate/1 with parent with children" do
     setup do
       parent =
         %ParentSchema{
@@ -70,14 +59,14 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes sum in results" do
+    test "includes sum of children field when aggregated" do
       assert [%{"children_number_field_sum" => 10}] =
                ParentSchema.aggregate(assocs: [children: [number_field: [:sum]]])
                |> Repo.all()
     end
   end
 
-  describe "aggregate/1 with 1-1 association field" do
+  describe "aggregate/1 with parent with sibling" do
     setup do
       parent =
         %ParentSchema{}
@@ -89,14 +78,14 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes field in results" do
+    test "accepts sibling grouping" do
       assert [%{"sibling_string_field" => "what"}] =
                ParentSchema.aggregate(fields: [sibling: :string_field])
                |> Repo.all()
     end
   end
 
-  describe "aggregate/1 with 1-1 association field and association sum" do
+  describe "aggregate/1 with two parents one with sibling and one without" do
     setup do
       parent =
         %ParentSchema{name: "hi"}
@@ -118,7 +107,7 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes field in results" do
+    test "aggregate on child respects grouping on sibling" do
       assert [
                %{"sibling_string_field" => "what", "children_number_field_sum" => 1},
                %{"sibling_string_field" => nil, "children_number_field_sum" => 0}
@@ -131,7 +120,7 @@ defmodule AgarTest do
     end
   end
 
-  describe "aggregate/1 with association field sum when there are no associated records" do
+  describe "aggregate/1 with parent without children" do
     setup do
       %ParentSchema{}
       |> Repo.insert!()
@@ -139,14 +128,28 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes sum in results" do
+    test "includes 0 sum in results" do
       assert [%{"children_number_field_sum" => 0}] =
                ParentSchema.aggregate(assocs: [children: [number_field: [:sum]]])
                |> Repo.all()
     end
   end
 
-  describe "aggregate/1 with association field with custom function" do
+  describe "aggregate/1 " do
+    test "accepts field with non-array function" do
+      assert [] =
+               ParentSchema.aggregate(assocs: [children: [string_field: :array]])
+               |> Repo.all()
+    end
+
+    test "accepts association field with non-array function" do
+      assert [] =
+               ParentSchema.aggregate(assocs: [children: [string_field: :array]])
+               |> Repo.all()
+    end
+  end
+
+  describe "aggregate/1 with parent with two children" do
     setup do
       parent =
         %ParentSchema{
@@ -163,47 +166,7 @@ defmodule AgarTest do
       :ok
     end
 
-    test "includes aggregate in results" do
-      assert [%{"children_string_field_array" => ["one", "two"]}] =
-               ParentSchema.aggregate(assocs: [children: [string_field: [:array]]])
-               |> Repo.all()
-    end
-  end
-
-  describe "aggregate field with non-array function" do
-    test "does not raise" do
-      assert [] =
-               ParentSchema.aggregate(assocs: [children: [string_field: :array]])
-               |> Repo.all()
-    end
-  end
-
-  describe "aggregate/1 with association field with non-array function" do
-    test "does not raise" do
-      assert [] =
-               ParentSchema.aggregate(assocs: [children: [string_field: :array]])
-               |> Repo.all()
-    end
-  end
-
-  describe "aggregate with child field" do
-    setup do
-      parent =
-        %ParentSchema{
-          name: "hi"
-        }
-        |> Repo.insert!()
-
-      [
-        %ChildSchema{string_field: "one", parent_schema: parent},
-        %ChildSchema{string_field: "two", parent_schema: parent}
-      ]
-      |> Enum.each(&Repo.insert!(&1))
-
-      :ok
-    end
-
-    test "groups by child field" do
+    test "grouping on child field returns two results" do
       assert [
                %{"name" => "hi", "children_string_field" => "one"},
                %{"name" => "hi", "children_string_field" => "two"}
@@ -212,9 +175,15 @@ defmodule AgarTest do
                |> Repo.all()
                |> Enum.sort_by(&Map.fetch!(&1, "children_string_field"))
     end
+
+    test "aggregating on child function returns one result" do
+      assert [%{"children_string_field_array" => ["one", "two"]}] =
+               ParentSchema.aggregate(assocs: [children: [string_field: [:array]]])
+               |> Repo.all()
+    end
   end
 
-  describe "aggregate with parent grouping and child aggregate" do
+  describe "aggregate/1 with parents with matching fields and children" do
     setup do
       parent =
         %ParentSchema{
@@ -237,7 +206,7 @@ defmodule AgarTest do
       :ok
     end
 
-    test "aggregate respects grouping" do
+    test "grouping on matching field and aggregating on child field returns single result" do
       assert [
                %{"name" => "hi", "children_number_field_sum" => 3}
              ] =
