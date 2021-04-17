@@ -216,7 +216,9 @@ defmodule Agar do
               where(
                 unquote(escaped_query),
                 [..., j],
-                parent_as(unquote(relation_name)).unquote(field) == j.unquote(field)
+                parent_as(unquote(relation_name)).unquote(field) == j.unquote(field) or
+                  (is_nil(parent_as(unquote(relation_name)).unquote(field)) and
+                     is_nil(j.unquote(field)))
               )
             end
           )
@@ -231,7 +233,9 @@ defmodule Agar do
             where(
               unquote(escaped_query),
               [s],
-              parent_as(unquote(binding)).unquote(field) == field(s, ^unquote(field))
+              parent_as(unquote(binding)).unquote(field) == field(s, ^unquote(field)) or
+                (is_nil(parent_as(unquote(binding)).unquote(field)) and
+                   is_nil(field(s, ^unquote(field))))
             )
           end
         )

@@ -110,7 +110,7 @@ defmodule AgarTest do
     test "aggregate on child respects grouping on sibling" do
       assert [
                %{"sibling_string_field" => "what", "children_number_field_sum" => 1},
-               %{"sibling_string_field" => nil, "children_number_field_sum" => 0}
+               %{"sibling_string_field" => nil, "children_number_field_sum" => 2}
              ] =
                ParentSchema.aggregate(
                  fields: [sibling: [:string_field]],
@@ -216,6 +216,27 @@ defmodule AgarTest do
                )
                |> Repo.all()
                |> Enum.sort_by(&Map.fetch!(&1, "children_number_field_sum"))
+    end
+  end
+
+  describe "aggregate/1 with parent with nil field and child" do
+    setup do
+      parent =
+        %ParentSchema{
+          name: nil
+        }
+        |> Repo.insert!()
+
+      %ChildSchema{number_field: 1, parent_schema: parent}
+      |> Repo.insert!()
+
+      :ok
+    end
+
+    test "aggregating child value works when grouping on nil field" do
+      assert [%{"children_number_field_sum" => 1}] =
+               ParentSchema.aggregate(fields: [:name], assocs: [children: [number_field: :sum]])
+               |> Repo.all()
     end
   end
 end
