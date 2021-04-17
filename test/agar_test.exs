@@ -19,6 +19,12 @@ defmodule AgarTest do
     end
   end
 
+  describe "aggregate/1 containing whitelisted key with custom agg function" do
+    test "raises error" do
+      assert %{} = ParentSchema.aggregate(["array_children_number_field"])
+    end
+  end
+
   describe "aggregate/1 with single record" do
     setup do
       %ParentSchema{

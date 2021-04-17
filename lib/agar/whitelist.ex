@@ -2,7 +2,14 @@ defmodule Agar.Whitelist do
   def parse(module, columns) do
     Enum.reduce(columns, [], fn key, acc ->
       [agg, key] =
-        if String.starts_with?(key, ["sum", "count", "avg"]) do
+        if String.starts_with?(
+             key,
+             Enum.concat(
+               [:sum, :count, :avg],
+               Application.get_env(:agar, :custom_aggregations, []) |> Keyword.keys()
+             )
+             |> Enum.map(&to_string/1)
+           ) do
           String.split(key, "_", parts: 2)
         else
           [nil, key]
@@ -16,7 +23,7 @@ defmodule Agar.Whitelist do
             raise Agar.InvalidColumnKey, ~s(no config found for '#{key}')
 
           {assoc_name, field} ->
-            [assocs: [{assoc_name, [{field, [agg]}]}]]
+            [assocs: [{assoc_name, [{field, [String.to_existing_atom(agg)]}]}]]
 
           key ->
             [fields: [key]]
