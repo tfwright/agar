@@ -250,7 +250,7 @@ defmodule Agar do
     end
   end
 
-  defp binding_name(schema), do: String.to_atom(schema.__schema__(:source))
+  defp binding_name(schema), do: String.to_atom("__agar_" <> schema.__schema__(:source))
 end
 
 defmodule Agar.InvalidColumnKey do
