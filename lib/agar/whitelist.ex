@@ -1,35 +1,9 @@
 defmodule Agar.Whitelist do
   def parse(module, columns) do
     Enum.reduce(columns, [], fn key, acc ->
-      [agg, key] =
-        if String.starts_with?(
-             key,
-             Enum.concat(
-               [:sum, :count, :avg],
-               Application.get_env(:agar, :custom_aggregations, []) |> Keyword.keys()
-             )
-             |> Enum.map(&to_string/1)
-           ) do
-          String.split(key, "_", parts: 2)
-        else
-          [nil, key]
-        end
-
-      config =
-        configs_by_whitelisted_keys(module)
-        |> Map.get(key)
-        |> case do
-          nil ->
-            raise Agar.InvalidColumnKey, ~s(no config found for '#{key}')
-
-          {assoc_name, field} ->
-            [assocs: [{assoc_name, [{field, [String.to_existing_atom(agg)]}]}]]
-
-          key ->
-            [fields: [key]]
-        end
-
-      Keyword.merge(acc, config, &recursively_merge_column_configs/3)
+      parse_key(key)
+      |> key_to_config(module)
+      |> Keyword.merge(acc, &recursively_merge_column_configs/3)
     end)
   end
 
@@ -60,4 +34,34 @@ defmodule Agar.Whitelist do
     do: {"#{assoc_name}_#{field}", {assoc_name, field}}
 
   defp to_whitelist_key_pair(field), do: {to_string(field), field}
+
+  defp parse_key(key) do
+    if String.starts_with?(
+         key,
+         Enum.concat(
+           [:sum, :count, :avg],
+           Application.get_env(:agar, :custom_aggregations, []) |> Keyword.keys()
+         )
+         |> Enum.map(&to_string/1)
+       ) do
+      String.split(key, "_", parts: 2)
+    else
+      [nil, key]
+    end
+  end
+
+  defp key_to_config([agg, key], module) do
+    configs_by_whitelisted_keys(module)
+    |> Map.get(key)
+    |> case do
+      nil ->
+        raise Agar.InvalidColumnKey, ~s(no config found for '#{key}')
+
+      {assoc_name, field} ->
+        [assocs: [{assoc_name, [{field, [String.to_existing_atom(agg)]}]}]]
+
+      key ->
+        [fields: [key]]
+    end
+  end
 end
