@@ -133,7 +133,7 @@ defmodule Agar do
 
     Code.eval_quoted(
       quote do
-        from(s in unquote(escaped_query), as: unquote(binding))
+        from(unquote(escaped_query), as: unquote(binding))
       end
     )
     |> elem(0)
