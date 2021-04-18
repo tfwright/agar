@@ -20,8 +20,8 @@ defmodule AgarTest do
   end
 
   describe "aggregate/1 containing whitelisted key with custom agg function" do
-    test "raises error" do
-      assert %{} = ParentSchema.aggregate(["array_children_number_field"])
+    test "returns query" do
+      assert %Ecto.Query{} = ParentSchema.aggregate(["array_children_number_field"])
     end
   end
 
