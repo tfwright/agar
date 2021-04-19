@@ -9,6 +9,7 @@ defmodule AgarTest do
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(AgarTest.Repo, {:shared, self()})
   end
 
   describe "aggregate/1 containing non-whitelisted key" do
@@ -22,6 +23,39 @@ defmodule AgarTest do
   describe "aggregate/1 containing whitelisted key with custom agg function" do
     test "returns query" do
       assert %Ecto.Query{} = ParentSchema.aggregate(["array_children_number_field"])
+    end
+  end
+
+  describe "aggregate_async/2" do
+    test "returns Task" do
+      assert %Task{} = ParentSchema.aggregate_async([fields: [:id]], Repo)
+    end
+  end
+
+  describe "aggregate_async/2 when piped into Task.await" do
+    test "returns results" do
+      assert [] =
+               ParentSchema.aggregate_async([fields: [:id]], Repo)
+               |> Task.await()
+    end
+  end
+
+  describe "aggregate_async/2 when piped into Task.await with parent and child" do
+    setup do
+      parent =
+        %ParentSchema{}
+        |> Repo.insert!()
+
+      %ChildSchema{parent_schema: parent}
+      |> Repo.insert!()
+
+      :ok
+    end
+
+    test "includes agg on child in results" do
+      assert [%{"children_id_count" => 1}] =
+               ParentSchema.aggregate_async([assocs: [children: [id: :count]]], Repo)
+               |> Task.await()
     end
   end
 
