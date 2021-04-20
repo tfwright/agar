@@ -36,12 +36,12 @@ defmodule Agar do
       MySchema.aggregate(["name", "sum_other_schema_field"])
       """
       def aggregate(queryable \\ __MODULE__, columns) do
-        Agar.__aggregate__(columns, __MODULE__, queryable)
+        Agar.aggregate(columns, __MODULE__, queryable)
       end
     end
   end
 
-  def __aggregate__(columns, schema, queryable) do
+  def aggregate(columns, schema, queryable) do
     configs =
       if Keyword.keyword?(columns) do
         columns
