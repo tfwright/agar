@@ -8,5 +8,7 @@ defmodule AgarTest.Repo.Migrations.CreateTestChildren do
 
       add(:parent_schema_id, references(:test_parents, on_delete: :delete_all))
     end
+
+    create index(:test_children, [:parent_schema_id])
   end
 end

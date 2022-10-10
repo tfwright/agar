@@ -22,7 +22,8 @@ defmodule Agar.MixProject do
     [
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.0", only: :test},
-      {:postgrex, "~> 0.14", only: :test}
+      {:postgrex, "~> 0.14", only: :test},
+      {:benchee, "~> 1.0", only: :test}
     ]
   end
 
