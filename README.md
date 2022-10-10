@@ -51,4 +51,4 @@ end
 
 ## Development
 
-* Prepare test database: `MIX_ENV=test mix do ecto.create, mix ecto.migrate`
+* Prepare test database: `MIX_ENV=test mix do ecto.create, ecto.migrate`

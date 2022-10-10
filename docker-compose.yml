@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  app:
+    build: '.'
+    volumes:
+      - .:/opt/code
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: agar_test
+      MIX_ENV: test
+    depends_on:
+      - db
+    command: mix test
+  db:
+    environment:
+      POSTGRES_DB: agar_test
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    image: 'postgres:13-alpine'
